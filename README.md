@@ -12,7 +12,7 @@
 
 We need a sample faust number for getting started, this will be removed later on, only used for testing when starting coding
 
-    testFaust = 1234
+    testFaust = "29243700"
 
 ## MongoDB databases and publishing
 
@@ -25,10 +25,18 @@ and the actual database of patron statistics
     statDB = new Meteor.Collection("patronstat") 
 
 
+## Dependencies
+
+    if Meteor.isServer
+        fs = Npm.require "fs"
+        Fiber = Npm.require "fibers"
+
+
 ## Initialise database
 
     if Meteor.isServer
         dbLoading = false
+        dbLoaded = 0
 
 Make sure we only initialise the database once. Initialise it by mapping `handleLines` across each line in the file.
 
@@ -42,22 +50,33 @@ Make sure we only initialise the database once. Initialise it by mapping `handle
 
 Parse/handle each line in the data dump
 
-        handleLine = (line) ->
-            fields = line.split(/\s+/)
-            sex = fields[2]
-            birthYear = +fields[3].slice(0,4)
-            loanYear= +fields[7].slice(0,4)
-            faust = +fields[5]
-            klynge = +fields[6]
-            console.log faust, klynge, sex, loanYear - birthYear
+        handleLine = (line, done) -> (Fiber ->
+                fields = line.split(/\s+/)
+                sex = fields[2]
+                birthYear = +fields[3].slice(0,4)
+                loanYear= +fields[7].slice(0,4)
+                faust = fields[5]
+                klynge = fields[6]
+                age = loanYear - birthYear
+    
+                faustDB.update {_id: faust}, {_id: faust, klynge: klynge}, {upsert: true}
+    
+                dbOperator = {$inc: {}}
+                dbOperator.$inc[sex + age] = 1
+                statDB.update {_id: klynge}, dbOperator, {upsert: true}
+                if ++dbLoaded % 1000 is 0
+                    console.log dbLoaded, new Date()
 
-        Meteor.startup(initDB) 
+            ).run()
+
+
+Init database on startup
+
+        Meteor.startup initDB
 
 ## Utility functions
 
     if Meteor.isServer
-        fs = Npm.require "fs"
-
         foreachLineInFile = (filename, fn, done) ->
             stream = fs.createReadStream filename
             readbuf = ""
