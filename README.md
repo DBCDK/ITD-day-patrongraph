@@ -25,13 +25,47 @@ and the actual database of patron statistics
     statDB = new Meteor.Collection("patronstat") 
 
 
-## Create database
+## Initialise database
 
     if Meteor.isServer
         dbLoading = false
 
+Make sure we only initialise the database once. Initialise it by mapping `handleLines` across each line in the file.
+
         initDB = ->
             return if dbLoading or statDB.findOne {_id: "dbLoaded"} 
-            console.log "here we should parse the data dump and load it into the mongodb"
+            dbLoading = true
+
+            foreachLineInFile "uid-bib-_-_-id-lid-klynge-dato-klyngelaan.db", handleLine, ->
+                statDB.insert {_id: "dbLoaded"}
+                dbLoading = false
+
+Parse/handle each line in the data dump
+
+        handleLine = (line) ->
+            fields = line.split(/\s+/)
+            sex = fields[2]
+            birthYear = +fields[3].slice(0,4)
+            loanYear= +fields[7].slice(0,4)
+            faust = +fields[5]
+            klynge = +fields[6]
+            console.log faust, klynge, sex, loanYear - birthYear
 
         Meteor.startup(initDB) 
+
+## Utility functions
+
+    if Meteor.isServer
+        fs = Npm.require "fs"
+
+        foreachLineInFile = (filename, fn, done) ->
+            stream = fs.createReadStream filename
+            readbuf = ""
+            stream.on "data", (data) ->
+                readbuf += data
+                lines = readbuf.split /\n/
+                (lines.slice 0, -1).forEach fn
+                readbuf = lines[lines.length - 1]
+            stream.on "end", () ->
+                fn readbuf if readbuf
+                fn undefined
