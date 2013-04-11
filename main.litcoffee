@@ -94,8 +94,30 @@ Init database on startup
 ## Client
 
     if Meteor.isClient
-        Template.main.klynge = ->
-            (faustDB.findOne testFaust)?.klynge
+        Deps.autorun ->
+            console.log (faustDB.findOne testFaust)?.klynge
+            for elem in document.getElementsByClassName "patronGraph"
+                faust = elem.dataset.faust
+                klynge = (faustDB.findOne {_id: faust})?.klynge
+                if klynge
+                    statEntry = statDB.findOne {_id: klynge}
+                    console.log statEntry
+                    stat = {k:[], m:[]}
+                    for key, val of statEntry
+                        sex = key[0]
+                        age = +key.slice(1)
+                        if key isnt "_id"
+                            console.log sex, age
+                            stat[sex][age] = val
+
+                    renderStat elem, stat
+
+
+        renderStat = (elem, stat) ->
+            console.log stat
+            elem.innerHTML = stat
+
+
 
 
 ## Utility functions
