@@ -12,8 +12,7 @@
 
 We need a sample faust number for getting started, this will be removed later on, only used for testing when starting coding
 
-    testFaust = "29243700"
-
+    testFausts = ["29243700", "28682417"]
 ## Dependencies
 
     if Meteor.isServer
@@ -33,9 +32,6 @@ and the actual database of patron statistics
     statDB = new Meteor.Collection("patronstat") 
 
 ### Publishing
-
-    if Meteor.isClient
-        Meteor.subscribe "faust", testFaust
 
     if Meteor.isServer
         Meteor.publish "faust", (faust) ->
@@ -89,34 +85,39 @@ Parse/handle each line in the data dump
 
 Init database on startup
 
-        Meteor.startup initDB
+        # Meteor.startup initDB
 
 ## Client
 
+    if Meteor.isServer
+        console.log faustDB.findOne {_id: testFausts[0]}
+
     if Meteor.isClient
-        Deps.autorun ->
-            console.log (faustDB.findOne testFaust)?.klynge
+        updatePatronGraphs = ->
+            console.log faustDB.findOne {_id: testFausts[0]}
             for elem in document.getElementsByClassName "patronGraph"
                 faust = elem.dataset.faust
+                if faust
+                    Meteor.subscribe "faust", faust
                 klynge = (faustDB.findOne {_id: faust})?.klynge
                 if klynge
+                    elem.innerHTML = "<canvas id=\"canvasFaust#{faust}\">"
                     statEntry = statDB.findOne {_id: klynge}
-                    console.log statEntry
                     stat = {k:[], m:[]}
                     for key, val of statEntry
                         sex = key[0]
                         age = +key.slice(1)
                         if key isnt "_id"
-                            console.log sex, age
                             stat[sex][age] = val
+                    renderStat (document.getElementById "canvasFaust" + faust), stat
 
-                    renderStat elem, stat
-
-
-        renderStat = (elem, stat) ->
+        renderStat = (canvasElem, stat) ->
             console.log stat
-            elem.innerHTML = stat
+            ctx = canvasElem.getContext("2d");
+            ctx.fillRect(0,0,10,10);
 
+        Deps.autorun updatePatronGraphs
+        Meteor.startup updatePatronGraphs
 
 
 
