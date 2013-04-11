@@ -101,7 +101,7 @@ Init database on startup
                     Meteor.subscribe "faust", faust
                 klynge = (faustDB.findOne {_id: faust})?.klynge
                 if klynge
-                    elem.innerHTML = "<canvas id=\"canvasFaust#{faust}\">"
+                    elem.innerHTML = "<canvas id=\"canvasFaust#{faust}\" height=150 width=200></canvas>"
                     statEntry = statDB.findOne {_id: klynge}
                     stat = {k:[], m:[]}
                     for key, val of statEntry
@@ -113,8 +113,39 @@ Init database on startup
 
         renderStat = (canvasElem, stat) ->
             console.log stat
-            ctx = canvasElem.getContext("2d");
-            ctx.fillRect(0,0,10,10);
+            max = 0
+            for i in stat.m
+                max = Math.max(max, +i) if typeof i is "number"
+            for i in stat.k
+                max = Math.max(max, +i) if typeof i is "number"
+            console.log max
+            # return if not max 
+
+            ctx = canvasElem.getContext "2d"
+
+            for x in [5..95] by 5
+                ctx.fillRect 2*x, 100, 1, 2
+
+            for x in [10..90] by 10
+                w = (ctx.measureText String x).width
+                ctx.fillRect 2*x, 100, 1, 5
+                ctx.fillText (String x), 2*x-w/2, 114
+
+            ctx.fillStyle = "red"
+
+            drawBar = (x, height) ->
+                barHeight = 100*height/max
+                ctx.fillRect x, 100-barHeight, 1, barHeight
+
+
+            for age in [1..100]
+                if stat.k[age]
+                    drawBar(age*2,stat.k[age]);
+
+            ctx.fillStyle = "blue"
+            for age in [1..100]
+                if stat.m[age]
+                    drawBar(age*2+1,stat.m[age]);
 
         Deps.autorun updatePatronGraphs
         Meteor.startup updatePatronGraphs
